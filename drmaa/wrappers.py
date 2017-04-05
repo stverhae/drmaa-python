@@ -228,3 +228,11 @@ drmaa_job_ps.argtypes = [STRING, POINTER(c_int), STRING, size_t]
 drmaa_strerror = _lib.drmaa_strerror
 drmaa_strerror.restype = STRING
 drmaa_strerror.argtypes = [c_int]
+
+drmaa_recover_job = None
+try:
+    drmaa_recover_job = _lib.drmaa_recover_job
+    drmaa_recover_job.restype = c_int
+    drmaa_recover_job.argtypes = []
+except:
+    pass

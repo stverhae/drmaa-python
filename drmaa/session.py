@@ -49,8 +49,9 @@ from drmaa.wrappers import (drmaa_allocate_job_template, drmaa_attr_values_t,
                             drmaa_synchronize, drmaa_wait, drmaa_wcoredump,
                             drmaa_wexitstatus, drmaa_wifaborted,
                             drmaa_wifexited, drmaa_wifsignaled, drmaa_wtermsig,
+                            drmaa_recover_job,
                             py_drmaa_exit, py_drmaa_init)
-
+from drmaa.errors import ExitTimeoutException
 
 # Python 3 compatability help
 if sys.version_info < (3, 0):
@@ -296,6 +297,28 @@ class Session(object):
         This routine has no effect on running jobs.
         """
         jobTemplate.delete()
+
+    @staticmethod
+    def recoverJob(jobId, drm):
+        if isinstance(jobId, str):
+            jobId = jobId.encode(ENCODING)
+
+        if drm == 'condor' or drm == 'htcondor':
+            # for condor we need to manually add the job back into the master jobqueue
+            c(drmaa_recover_job, jobId)
+        elif drm == 'slurm':
+            # for slurm, if we wait for an unknown jobid, it reconstructs that job internally
+            # waiting for ANY jobid will still fail horribly if we don't make this wait(jobid) call first
+            stat = c_int()
+            jid_out = create_string_buffer(128)
+            rusage = pointer(POINTER(drmaa_attr_values_t)())
+            if isinstance(jobId, str):
+                jobId = jobId.encode(ENCODING)
+            try:
+                c(drmaa_wait, jobId, jid_out, sizeof(jid_out), byref(stat), Session.TIMEOUT_NO_WAIT, rusage)
+            except ExitTimeoutException:
+                # timeout exceptions signal no job was completed so far
+                pass
 
     # takes JobTemplate instance, returns string
     @staticmethod
