@@ -51,7 +51,7 @@ from drmaa.wrappers import (drmaa_allocate_job_template, drmaa_attr_values_t,
                             drmaa_wifexited, drmaa_wifsignaled, drmaa_wtermsig,
                             drmaa_recover_job,
                             py_drmaa_exit, py_drmaa_init)
-from drmaa.errors import ExitTimeoutException
+from drmaa.errors import ExitTimeoutException, DrmaaException
 
 # Python 3 compatability help
 if sys.version_info < (3, 0):
@@ -231,6 +231,9 @@ class Session(object):
     DRMAA library. For DRMAA 1.0, major is 1 and minor is 0.
     """
 
+
+    DRM_NAME = None
+
     def __init__(self, contactString=None):
         self.contactString = contactString
 
@@ -256,6 +259,16 @@ class Session(object):
         SessionAlreadyActiveException.
         """
         py_drmaa_init(contactString)
+        info = Session.drmsInfo().lower()
+        if "condor" in info:
+            DRM_NAME = "condor"
+        elif "sge" in info or "oge" in info or "ogs/ge" in info:
+            DRM_NAME = "sge"
+        elif "slurm" in info:
+            DRM_NAME = "slurm"
+        else:
+            raise DrmaaException("Unknown DRM: "+ info)
+
 
     # no return value
     @staticmethod
@@ -299,14 +312,14 @@ class Session(object):
         jobTemplate.delete()
 
     @staticmethod
-    def recoverJob(jobId, drm):
+    def recoverJob(jobId):
         if isinstance(jobId, str):
             jobId = jobId.encode(ENCODING)
 
-        if drm == 'condor' or drm == 'htcondor':
+        if Session.DRM_NAME == 'condor':
             # for condor we need to manually add the job back into the master jobqueue
             c(drmaa_recover_job, jobId)
-        elif drm == 'slurm':
+        elif Session.DRM_NAME == 'slurm':
             # for slurm, if we wait for an unknown jobid, it reconstructs that job internally
             # waiting for ANY jobid will still fail horribly if we don't make this wait(jobid) call first
             stat = c_int()
