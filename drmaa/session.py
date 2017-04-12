@@ -259,13 +259,13 @@ class Session(object):
         SessionAlreadyActiveException.
         """
         py_drmaa_init(contactString)
-        info = Session.drmsInfo().lower()
+        info = Session.drmsInfo.lower()
         if "condor" in info:
-            DRM_NAME = "condor"
+            Session.DRM_NAME = "condor"
         elif "sge" in info or "oge" in info or "ogs/ge" in info:
-            DRM_NAME = "sge"
+            Session.DRM_NAME = "sge"
         elif "slurm" in info:
-            DRM_NAME = "slurm"
+            Session.DRM_NAME = "slurm"
         else:
             raise DrmaaException("Unknown DRM: "+ info)
 
