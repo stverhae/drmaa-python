@@ -51,7 +51,7 @@ from drmaa.wrappers import (drmaa_allocate_job_template, drmaa_attr_values_t,
                             drmaa_wifexited, drmaa_wifsignaled, drmaa_wtermsig,
                             drmaa_recover_job,
                             py_drmaa_exit, py_drmaa_init)
-from drmaa.errors import ExitTimeoutException, DrmaaException
+from drmaa.errors import ExitTimeoutException, DrmaaException, NoUsageException
 
 # Python 3 compatability help
 if sys.version_info < (3, 0):
@@ -499,13 +499,21 @@ class Session(object):
         out before the job finished.)
         """
         stat = c_int()
+
         jid_out = create_string_buffer(128)
         rusage = pointer(POINTER(drmaa_attr_values_t)())
         if isinstance(jobId, str):
             jobId = jobId.encode(ENCODING)
-        c(drmaa_wait, jobId, jid_out, sizeof(jid_out), byref(stat), timeout,
-          rusage)
-        res_usage = adapt_rusage(rusage)
+        try:
+            c(drmaa_wait, jobId, jid_out, sizeof(jid_out), byref(stat), timeout,
+              rusage)
+            res_usage = adapt_rusage(rusage)
+        except NoUsageException as e:
+            # on sge, if the session was resumed (after restart) and the job is already done, it fails to fetch usage information.
+            # since we don't need it, try to recover the info we actually need ...
+            print(">>>>> DRMAA-PYTHON: caught NO_USAGE exception, trying to recover stat info if possible (this is a fix for sge recovery failure): " + str(e))
+            res_usage = None
+
         exited = c_int()
         c(drmaa_wifexited, byref(exited), stat)
         aborted = c_int()
@@ -523,6 +531,8 @@ class Session(object):
         return JobInfo(jid_out.value.decode(), bool(exited), bool(signaled),
                        term_signal.value.decode(), bool(coredumped),
                        bool(aborted), int(exit_status.value), res_usage)
+
+
 
     # takes string, returns JobState instance
     @staticmethod

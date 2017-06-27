@@ -139,6 +139,9 @@ class InvalidAttributeValueException(DrmaaException, AttributeError):
 class OutOfMemoryException(DrmaaException, MemoryError):
     pass
 
+class NoUsageException(DrmaaException, MemoryError):
+    pass
+
 error_buffer = create_string_buffer(ERROR_STRING_BUFFER)
 
 
@@ -176,5 +179,5 @@ _ERRORS = [InternalException,
            HoldInconsistentStateException,
            ReleaseInconsistentStateException,
            ExitTimeoutException,
-           Exception,
+           NoUsageException,
            StopIteration]
